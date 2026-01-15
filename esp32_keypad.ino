@@ -9,7 +9,7 @@ const char* ssid = "YOUR_SSID";
 const char* password = "YOUR_PASSWORD";
 
 // Server URL
-const char* serverUrl = "http://YOUR_SERVER_IP:3000/api/transaction"; // Change to your server
+const char* serverUrl = "https://your-render-app.onrender.com/api/transaction"; // Update with your Render URL
 
 // OLED
 #define SCREEN_WIDTH 128
@@ -145,7 +145,7 @@ void sendData(String data) {
 }
 
 void getData(String type) {
-  String url = "http://YOUR_SERVER_IP:3000/api/" + type;
+  String url = "https://your-render-app.onrender.com/api/" + type;
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     http.begin(url);

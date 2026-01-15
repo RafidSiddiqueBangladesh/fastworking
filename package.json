@@ -2,7 +2,9 @@
   "name": "esp32-transaction-server",
   "version": "1.0.0",
   "description": "Prototype Express server for ESP32 keypad transactions",
-  "main": "server.js",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
     "start": "node server.js"
   },
