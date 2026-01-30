@@ -172,3 +172,8 @@ app.get('/api/revenue-summary', async (req, res) => {
 
   res.json({ total_revenue, due_to_customers, due_from_suppliers });
 });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
