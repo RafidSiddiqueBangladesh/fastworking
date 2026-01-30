@@ -14,9 +14,13 @@ Prototype Express.js server with MongoDB for handling transactions from ESP32 ke
 
 - POST /api/transaction : { "data": "*101300" } for buying cash from 00 amount 300
 
-- GET /api/sells : { "total_sells": 123 }
+- GET /api/sells-summary : { "total_amount": 123, "customer_count": 5 }
 
-- GET /api/buys : { "total_buys": 456 }
+- GET /api/buys-summary : { "total_amount": 456, "product_count": 3 }
+
+- GET /api/revenue-summary : { "total_revenue": 123, "due_to_customers": 50, "due_from_suppliers": 30 }
+
+- GET /api/transactions : Returns all transactions (for checking data)
 
 ## Entities (Customers for Selling)
 
@@ -64,4 +68,4 @@ Prototype Express.js server with MongoDB for handling transactions from ESP32 ke
 
 ## ESP32 Code
 
-Use the `esp32_keypad.ino` file in Arduino IDE. Update WiFi credentials and server URL. Install Adafruit_SSD1306 library for OLED.
+Use the `esp32_keypad.ino` file in Arduino IDE. Update WiFi credentials and server URL. Install Adafruit_SSD1306 and Keypad libraries.

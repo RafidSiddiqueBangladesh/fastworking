@@ -3,165 +3,223 @@
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
+#include <Keypad.h>
 
-// WiFi credentials
-const char* ssid = "YOUR_SSID";
-const char* password = "YOUR_PASSWORD";
+// ================= WIFI =================
+const char* ssid = "Abcde";
+const char* password = "12345678";
 
-// Server URL
-const char* serverUrl = "https://your-render-app.onrender.com/api/transaction"; // Update with your Render URL
+// ================= SERVER =================
+const char* serverUrl = "https://fastworking.onrender.com/api/transaction";
 
-// OLED
+// ================= OLED =================
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// Keypad pins
+// ================= KEYPAD =================
 const byte ROWS = 4;
 const byte COLS = 4;
+
 char keys[ROWS][COLS] = {
   {'1','2','3','A'},
   {'4','5','6','B'},
   {'7','8','9','C'},
   {'*','0','#','D'}
 };
-byte rowPins[ROWS] = {16, 17, 18, 19}; // R1 R2 R3 R4
-byte colPins[COLS] = {23, 5, 4, 32};   // C1 C2 C3 C4
 
+byte rowPins[ROWS] = {13, 14, 25, 26};
+byte colPins[COLS] = {27, 33, 32, 19};
+
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+// ================= STATE =================
 String inputBuffer = "";
 bool isBuying = false;
 bool isSelling = false;
 
+// ================= SETUP =================
 void setup() {
   Serial.begin(115200);
+  delay(1000);
+
+  Serial.println("\n=== ESP32 START ===");
+
   WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+
   while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
+    delay(500);
+    Serial.print(".");
   }
-  Serial.println("Connected to WiFi");
 
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;);
+  Serial.println("\nWiFi CONNECTED");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
+
+  Wire.begin(21, 22);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("OLED FAILED");
+    while (true);
   }
-  display.display();
-  delay(2000);
+
   display.clearDisplay();
-
-  for (byte i = 0; i < ROWS; i++) {
-    pinMode(rowPins[i], INPUT_PULLUP);
-  }
-  for (byte i = 0; i < COLS; i++) {
-    pinMode(colPins[i], OUTPUT);
-    digitalWrite(colPins[i], HIGH);
-  }
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.println("READY");
+  display.display();
 }
 
+// ================= LOOP =================
 void loop() {
-  char key = getKey();
-  if (key != 0) {
+  char key = keypad.getKey();
+  if (key) {
+    Serial.print("Key Pressed: ");
+    Serial.println(key);
     handleKey(key);
   }
-  delay(100);
 }
 
-char getKey() {
-  for (byte c = 0; c < COLS; c++) {
-    digitalWrite(colPins[c], LOW);
-    for (byte r = 0; r < ROWS; r++) {
-      if (digitalRead(rowPins[r]) == LOW) {
-        delay(50); // debounce
-        if (digitalRead(rowPins[r]) == LOW) {
-          digitalWrite(colPins[c], HIGH);
-          return keys[r][c];
-        }
-      }
-    }
-    digitalWrite(colPins[c], HIGH);
-  }
-  return 0;
-}
-
+// ================= LOGIC =================
 void handleKey(char key) {
+
   if (key == 'A') {
-    // Get sells
-    getData("sells");
-  } else if (key == '*') {
-    // Start buying
+    getData("sells-summary");
+  }
+  else if (key == 'B') {
+    getData("buys-summary");
+  }
+  else if (key == 'C') {
+    getData("revenue-summary");
+  }
+  else if (key == '*') {
     inputBuffer = "*";
     isBuying = true;
     isSelling = false;
     displayInput();
-  } else if (key == '#') {
-    // Start selling
+  }
+  else if (key == '#') {
     inputBuffer = "#";
     isSelling = true;
     isBuying = false;
     displayInput();
-  } else if (key == 'D') {
-    // Send data
+  }
+  else if (key == 'D') {
     if (inputBuffer.length() > 1) {
       sendData(inputBuffer);
       inputBuffer = "";
       isBuying = false;
       isSelling = false;
     }
-  } else if (isBuying || isSelling) {
+  }
+  else if (isBuying || isSelling) {
     inputBuffer += key;
     displayInput();
   }
 }
 
+// ================= DISPLAY =================
 void displayInput() {
   display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
   display.setCursor(0,0);
+  display.setTextSize(2);
   display.println(inputBuffer);
   display.display();
 }
 
+// ================= HTTP POST WITH DEBUG =================
 void sendData(String data) {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    http.begin(serverUrl);
-    http.addHeader("Content-Type", "application/json");
-    String jsonData = "{\"data\":\"" + data + "\"}";
-    int httpResponseCode = http.POST(jsonData);
-    if (httpResponseCode > 0) {
-      String response = http.getString();
-      Serial.println(response);
-      display.clearDisplay();
-      display.setCursor(0,0);
-      display.println("Sent");
-      display.display();
-      delay(2000);
-    } else {
-      Serial.println("Error sending");
-    }
-    http.end();
+
+  Serial.println("\n--- SEND DATA ---");
+  Serial.print("Payload: ");
+  Serial.println(data);
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("❌ FAIL: WiFi DISCONNECTED");
+    showStatus("NO WIFI");
+    return;
   }
+
+  HTTPClient http;
+  http.setTimeout(10000); // 10 sec timeout
+  http.begin(serverUrl);
+  http.addHeader("Content-Type", "application/json");
+
+  String json = "{\"data\":\"" + data + "\"}";
+  int httpCode = http.POST(json);
+
+  Serial.print("HTTP Code: ");
+  Serial.println(httpCode);
+
+  if (httpCode > 0) {
+    String response = http.getString();
+    Serial.print("Server Response: ");
+    Serial.println(response);
+
+    if (httpCode >= 200 && httpCode < 300) {
+      Serial.println("✅ SUCCESS: Data sent");
+      showStatus("SENT");
+    } else {
+      Serial.println("❌ SERVER ERROR");
+      showStatus("SRV ERR");
+    }
+  }
+  else {
+    Serial.println("❌ HTTP FAILED");
+    Serial.print("Reason: ");
+    Serial.println(http.errorToString(httpCode));
+    showStatus("HTTP ERR");
+  }
+
+  http.end();
 }
 
+// ================= HTTP GET WITH DEBUG =================
 void getData(String type) {
-  String url = "https://your-render-app.onrender.com/api/" + type;
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    http.begin(url);
-    int httpResponseCode = http.GET();
-    if (httpResponseCode > 0) {
-      String payload = http.getString();
-      Serial.println(payload);
-      display.clearDisplay();
-      display.setCursor(0,0);
-      display.println(type + ":");
-      display.println(payload);
-      display.display();
-      delay(5000);
-    } else {
-      Serial.println("Error getting data");
-    }
-    http.end();
+
+  Serial.println("\n--- GET DATA ---");
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("❌ FAIL: WiFi DISCONNECTED");
+    return;
   }
+
+  HTTPClient http;
+  String url = "https://fastworking.onrender.com/api/" + type;
+  http.begin(url);
+
+  int code = http.GET();
+  Serial.print("HTTP Code: ");
+  Serial.println(code);
+
+  if (code > 0) {
+    String payload = http.getString();
+    Serial.println("Response:");
+    Serial.println(payload);
+
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0,0);
+    display.println(type + ":");
+    display.println(payload);
+    display.display();
+  } else {
+    Serial.print("❌ GET FAILED: ");
+    Serial.println(http.errorToString(code));
+  }
+
+  delay(5000);
+  http.end();
+}
+
+// ================= OLED STATUS =================
+void showStatus(const char* msg) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setCursor(0,0);
+  display.println(msg);
+  display.display();
+  delay(2000);
 }
